@@ -21,6 +21,7 @@ type Users struct {
 	Polygon_wallet string `json:"polygon_wallet"`
 	Bnb_wallet     string `json:"bnb_wallet"`
 	Wax_wallet     string `json:"wax_wallet"`
+	Key_hash       string `json:"key_hash"`
 }
 
 type Projects struct {

@@ -100,19 +100,45 @@ func GetOrders(c echo.Context) error {
 
 }
 
-func LinkWalletToUser(c echo.Context) error {
+func PutNewKeyHash(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	var user models.Users
-	discord_id := c.Param("discordId")
-	chain := c.Param("chain")
+	keyHash := c.Param("keyHash")
+	userId := c.Param("discordId")
 
 	defer cancel()
 
-	discord_id_uint, err := strconv.ParseUint(discord_id, 10, 64)
+	userIdInteger, err := strconv.ParseInt(userId, 10, 64)
 
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, responses.UserResponse{Status: http.StatusBadRequest, Message: "error", Data: &echo.Map{"data": err.Error()}})
 	}
+
+	defer cancel()
+
+	if err := c.Bind(&user); err != nil {
+		return c.JSON(http.StatusBadRequest, responses.UserResponse{Status: http.StatusBadRequest, Message: "error", Data: &echo.Map{"data": err.Error()}})
+	}
+
+	update := bson.M{"key_hash": keyHash}
+
+	result, err := userCollection.UpdateOne(ctx, bson.M{"disc_id": userIdInteger}, bson.M{"$set": update})
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, responses.UserResponse{Status: http.StatusInternalServerError, Message: "error", Data: &echo.Map{"data": err.Error()}})
+	}
+
+	return c.JSON(http.StatusOK, responses.UserResponse{Status: http.StatusOK, Message: "success", Data: &echo.Map{"data": result}})
+
+}
+
+func LinkWalletToUser(c echo.Context) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	var user models.Users
+	keyHash := c.Param("keyHash")
+	chain := c.Param("chain")
+
+	defer cancel()
 
 	if err := c.Bind(&user); err != nil {
 		return c.JSON(http.StatusBadRequest, responses.UserResponse{Status: http.StatusBadRequest, Message: "error", Data: &echo.Map{"data": err.Error()}})
@@ -121,24 +147,24 @@ func LinkWalletToUser(c echo.Context) error {
 	update := bson.M{}
 
 	if chain == "wax" {
-		update = bson.M{"wax_wallet": user.Wax_wallet}
+		update = bson.M{"wax_wallet": user.Wax_wallet, "key_hash": "0"}
 
 	} else if chain == "eth" {
 
-		update = bson.M{"eth_wallet": user.Eth_wallet}
+		update = bson.M{"eth_wallet": user.Eth_wallet, "key_hash": "0"}
 
 	} else if chain == "bnb" {
 
-		update = bson.M{"bnb_wallet": user.Bnb_wallet}
+		update = bson.M{"bnb_wallet": user.Bnb_wallet, "key_hash": "0"}
 
 	} else if chain == "polygon" {
 
-		update = bson.M{"polygon_wallet": user.Polygon_wallet}
+		update = bson.M{"polygon_wallet": user.Polygon_wallet, "key_hash": "0"}
 	} else {
 		return c.JSON(http.StatusBadRequest, responses.UserResponse{Status: http.StatusBadRequest, Message: "error", Data: &echo.Map{"data": "Chain not supported"}})
 	}
 
-	result, err := userCollection.UpdateOne(ctx, bson.M{"disc_id": discord_id_uint}, bson.M{"$set": update})
+	result, err := userCollection.UpdateOne(ctx, bson.M{"key_hash": keyHash}, bson.M{"$set": update})
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, responses.UserResponse{Status: http.StatusInternalServerError, Message: "error", Data: &echo.Map{"data": err.Error()}})
@@ -169,7 +195,7 @@ func GetProjects(c echo.Context) error {
 		projects = append(projects, singleProject)
 	}
 
-	return c.JSON(http.StatusInternalServerError, responses.UserResponse{Status: http.StatusOK, Message: "success", Data: &echo.Map{"data": projects}})
+	return c.JSON(http.StatusOK, responses.UserResponse{Status: http.StatusOK, Message: "success", Data: &echo.Map{"data": projects}})
 }
 
 func GetProjectByServerId(c echo.Context) error {
@@ -200,6 +226,7 @@ func GetProjectByServerId(c echo.Context) error {
 }
 
 func GetUser(c echo.Context) error {
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	var user models.Users
 	userId := c.Param("discordId")
@@ -230,9 +257,9 @@ func RegisterUser(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	var user models.Users
 	disc_id := c.Param("discordId")
+	discord_id, err := strconv.ParseUint(disc_id, 10, 64)
 
 	defer cancel()
-	discord_id, err := strconv.ParseUint(disc_id, 10, 64)
 	//validate the request body
 	if err := c.Bind(&user); err != nil {
 		return c.JSON(http.StatusBadRequest, responses.UserResponse{Status: http.StatusBadRequest, Message: "error", Data: &echo.Map{"data": err.Error()}})
